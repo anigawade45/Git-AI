@@ -1,4 +1,4 @@
-import { fetchApi } from './api';
+import { fetchApi, BASE_URL } from './api';
 
 export const authService = {
   async login(email, password) {
@@ -31,9 +31,9 @@ export const authService = {
   async getGitHubAuthUrl() {
     try {
       const data = await fetchApi('/auth/github');
-      return data.url || 'http://localhost:5000/api/auth/github?redirect=true';
+      return data.url || `${BASE_URL}/auth/github?redirect=true`;
     } catch (err) {
-      return 'http://localhost:5000/api/auth/github?redirect=true';
+      return `${BASE_URL}/auth/github?redirect=true`;
     }
   },
 

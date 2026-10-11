@@ -16,7 +16,7 @@ export default function SocialLogin({ onGitHubClick }) {
         window.location.href = url;
       }
     } catch (err) {
-      window.location.href = 'http://localhost:5000/api/auth/github?redirect=true';
+      console.error('Failed to get GitHub auth URL:', err);
     }
   };
 
