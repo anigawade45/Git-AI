@@ -7,6 +7,9 @@ export const authService = {
       body: JSON.stringify({ email, password }),
     });
     if (data && data.user) {
+      if (data.token) {
+        localStorage.setItem('user_token', data.token);
+      }
       localStorage.setItem('user', JSON.stringify(data.user));
     }
     return data;
@@ -17,6 +20,12 @@ export const authService = {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
     });
+    if (data && data.user) {
+      if (data.token) {
+        localStorage.setItem('user_token', data.token);
+      }
+      localStorage.setItem('user', JSON.stringify(data.user));
+    }
     return data;
   },
 
@@ -55,6 +64,7 @@ export const authService = {
       // Ignore API logout error
     }
     localStorage.removeItem('user');
+    localStorage.removeItem('user_token');
     return { success: true };
   },
 };

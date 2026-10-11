@@ -36,12 +36,20 @@ export const githubAuthUrl = async (req, res) => {
   const redirectUri =
     process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback';
 
-  const state = crypto.randomBytes(16).toString('hex');
+  // Cryptographically signed state (nonce:timestamp:hmac) for cross-domain OAuth reliability
+  const timestamp = Date.now();
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const secret = process.env.JWT_SECRET || 'github_assistant_state_secret';
+  const hmac = crypto
+    .createHmac('sha256', secret)
+    .update(`${nonce}:${timestamp}`)
+    .digest('hex');
+  const state = `${nonce}:${timestamp}:${hmac}`;
 
   res.cookie('oauth_state', state, {
     httpOnly: true,
     maxAge: 10 * 60 * 1000,
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
 
@@ -75,7 +83,10 @@ export const githubCallback = async (req, res) => {
   const cookies = parseCookies(req);
   const savedState = cookies.oauth_state;
 
-  res.clearCookie('oauth_state');
+  res.clearCookie('oauth_state', {
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
 
   if (req.query.error === 'access_denied') {
     const msg = 'GitHub sign-in was cancelled.';
@@ -88,7 +99,29 @@ export const githubCallback = async (req, res) => {
   const code = req.query.code || req.body?.code;
   const state = req.query.state || req.body?.state;
 
-  if (!state || !savedState || state !== savedState) {
+  // Verify state either cryptographically (stateless across domains) or via cookie
+  let isStateValid = false;
+  if (state) {
+    const parts = state.split(':');
+    if (parts.length === 3) {
+      const [nonce, timestampStr, signature] = parts;
+      const secret = process.env.JWT_SECRET || 'github_assistant_state_secret';
+      const expectedHmac = crypto
+        .createHmac('sha256', secret)
+        .update(`${nonce}:${timestampStr}`)
+        .digest('hex');
+      const timestamp = Number(timestampStr);
+      const isFresh = !isNaN(timestamp) && Date.now() - timestamp < 15 * 60 * 1000;
+      if (expectedHmac === signature && isFresh) {
+        isStateValid = true;
+      }
+    }
+    if (!isStateValid && savedState && savedState === state) {
+      isStateValid = true;
+    }
+  }
+
+  if (!isStateValid) {
     const msg = 'Invalid OAuth state. Security check failed.';
     if (req.method === 'GET') {
       return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(msg)}`);
@@ -260,12 +293,24 @@ export const githubCallback = async (req, res) => {
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     if (req.method === 'GET') {
-      return res.redirect(`${frontendUrl}/login?auth=success`);
+      const userParam = encodeURIComponent(
+        JSON.stringify({
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar || '',
+          githubUsername: user.githubUsername || '',
+        })
+      );
+      return res.redirect(
+        `${frontendUrl}/login?auth=success&token=${encodeURIComponent(token)}&user=${userParam}`
+      );
     }
 
     return res.json({
@@ -337,12 +382,13 @@ export const registerUser = async (req, res) => {
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.status(201).json({
       success: true,
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -398,12 +444,13 @@ export const loginUser = async (req, res) => {
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.json({
       success: true,
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -524,7 +571,7 @@ export const logoutUser = async (req, res) => {
     httpOnly: true,
     expires: new Date(0),
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   });
 
   return res.json({
