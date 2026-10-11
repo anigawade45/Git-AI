@@ -20,15 +20,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Production CORS Fail-Fast Check
-const frontendUrl = process.env.FRONTEND_URL;
-if (process.env.NODE_ENV === 'production' && !frontendUrl) {
+const rawFrontendUrl = process.env.FRONTEND_URL;
+if (process.env.NODE_ENV === 'production' && !rawFrontendUrl) {
   throw new Error('FRONTEND_URL environment variable must be configured in production.');
 }
+
+// Clean and normalize allowed origins (strip trailing slashes, support comma-separated origins)
+const allowedOrigins = (rawFrontendUrl || 'http://localhost:5173')
+  .split(',')
+  .map((url) => url.trim().replace(/\/+$/, ''));
 
 // Core Middleware
 app.use(
   cors({
-    origin: frontendUrl || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   })
 );
