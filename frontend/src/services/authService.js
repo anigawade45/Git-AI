@@ -31,9 +31,9 @@ export const authService = {
   async getGitHubAuthUrl() {
     try {
       const data = await fetchApi('/auth/github');
-      return data.url || 'http://localhost:5000/api/auth/github/callback?code=demo_github_code';
+      return data.url || 'http://localhost:5000/api/auth/github?redirect=true';
     } catch (err) {
-      return 'http://localhost:5000/api/auth/github/callback?code=demo_github_code';
+      return 'http://localhost:5000/api/auth/github?redirect=true';
     }
   },
 
