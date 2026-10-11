@@ -26,8 +26,8 @@ import { authService } from '@/services/authService';
 
 export default function Settings() {
   useMeta({
-    title: 'Account Settings | GitHub Knowledge Assistant',
-    description: 'Manage profile information, OpenAI API keys, and preferences.',
+    title: 'Account Settings | RepoGenius',
+    description: 'Manage profile information, OpenAI API keys, and preferences with RepoGenius.',
     robots: 'noindex, nofollow',
   });
 

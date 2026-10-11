@@ -301,7 +301,7 @@ export default function App() {
       size: '780 B',
       content: `# E-Commerce Platform
 
-Full-stack MERN e-commerce application integrated with AI recommendations & GitHub Knowledge Assistant.
+Full-stack MERN e-commerce application integrated with AI recommendations & RepoGenius.
 
 ## Features
 - User Authentication with JWT & bcrypt

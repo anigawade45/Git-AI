@@ -4,6 +4,7 @@ import { Code2, Menu, X, ArrowRight } from 'lucide-react';
 import { Github } from '@/components/common/Icons';
 import { Button } from '@/components/ui/button';
 import ThemeToggle from '@/components/common/ThemeToggle';
+import Logo from '@/components/common/Logo';
 
 const navLinks = [
   { label: 'Features', href: '#features' },
@@ -22,26 +23,16 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl transition-colors duration-200">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-18 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
         {/* Brand */}
         <Link
           to="/"
           onClick={closeMobileMenu}
-          className="group flex items-center gap-2.5"
-          aria-label="GitHub Assistant Home"
+          className="group flex items-center transition-transform hover:opacity-90 active:scale-95 py-1"
+          aria-label="RepoGenius Home"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary transition-all group-hover:bg-primary group-hover:text-primary-foreground">
-            <Code2 className="h-5 w-5" />
-          </div>
-
-          <span className="flex items-center gap-1.5 text-lg font-semibold tracking-tight text-foreground">
-            GitHub Assistant
-
-            <span className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-              AI
-            </span>
-          </span>
+          <Logo className="h-11 sm:h-13 md:h-14 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}

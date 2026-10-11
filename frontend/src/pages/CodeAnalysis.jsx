@@ -35,8 +35,8 @@ export default function CodeAnalysis() {
     : 'ecommerce-platform';
 
   useMeta({
-    title: `Code Analysis - ${targetRepoId} | GitHub Knowledge Assistant`,
-    description: 'Proactively audit codebase health, security risks, and performance bottlenecks.',
+    title: `Code Analysis - ${targetRepoId} | RepoGenius`,
+    description: 'Proactively audit codebase health, security risks, and performance bottlenecks with RepoGenius.',
     robots: 'noindex, nofollow',
   });
 

@@ -6,8 +6,8 @@ import { useMeta } from '@/hooks/useMeta';
 
 export default function NotFound() {
   useMeta({
-    title: '404 - Page Not Found | GitHub Knowledge Assistant',
-    description: 'The requested page does not exist.',
+    title: '404 - Page Not Found | RepoGenius',
+    description: 'The requested page does not exist on RepoGenius.',
     robots: 'noindex, nofollow',
   });
 

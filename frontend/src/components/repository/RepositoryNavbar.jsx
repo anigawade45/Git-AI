@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Code2, ChevronRight, User, Settings, CreditCard, LogOut } from 'lucide-react';
 import ThemeToggle from '@/components/common/ThemeToggle';
+import Logo from '@/components/common/Logo';
 import { Avatar } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -26,12 +27,9 @@ export default function RepositoryNavbar({ repo }) {
     <header className="sticky top-0 z-40 w-full h-16 border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between transition-colors duration-200">
       
       {/* Brand & Repository Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs sm:text-sm font-medium">
-        <Link to="/dashboard" className="flex items-center gap-2 group shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-            <Code2 className="w-4 h-4" />
-          </div>
-          <span className="font-semibold text-foreground hidden sm:inline">Dashboard</span>
+      <div className="flex items-center gap-2.5 text-xs sm:text-sm font-medium">
+        <Link to="/dashboard" className="flex items-center transition-opacity hover:opacity-90 shrink-0" aria-label="RepoGenius Dashboard">
+          <Logo className="h-8 sm:h-9 w-auto" />
         </Link>
 
         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />

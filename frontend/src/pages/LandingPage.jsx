@@ -14,9 +14,9 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function LandingPage() {
   useMeta({
-    title: 'GitHub Knowledge Assistant | AI-Powered Repository Analysis',
+    title: 'RepoGenius | AI-Powered Repository Intelligence & Analysis',
     description:
-      'Understand, analyze, and document GitHub repositories using an AI-powered knowledge assistant with source code line citations.',
+      'Understand, analyze, and document GitHub repositories using RepoGenius with source code line citations.',
     robots: 'index, follow',
   });
 

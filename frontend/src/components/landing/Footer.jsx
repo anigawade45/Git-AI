@@ -1,7 +1,9 @@
 import React from 'react';
-import { Code2, Heart } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Heart } from 'lucide-react';
 import { Github, Twitter, Linkedin } from '@/components/common/Icons';
 import { Separator } from '@/components/ui/separator';
+import Logo from '@/components/common/Logo';
 
 const productLinks = [
   { label: 'Features', href: '#features' },
@@ -57,23 +59,17 @@ export default function Footer() {
 
           {/* Brand */}
           <div className="space-y-4">
-            <a
-              href="#"
-              className="flex items-center gap-2.5"
-              aria-label="GitHub Assistant Home"
+            <Link
+              to="/"
+              className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
+              aria-label="RepoGenius Home"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                <Code2 className="h-4 w-4" />
-              </div>
-
-              <span className="text-base font-semibold tracking-tight text-foreground">
-                GitHub Assistant
-              </span>
-            </a>
+              <Logo className="h-9 sm:h-11 w-auto" />
+            </Link>
 
             <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
-              AI-powered repository analysis, semantic code search, and
-              contextual code understanding.
+              AI-powered repository intelligence, semantic code search, and
+              contextual codebase understanding.
             </p>
           </div>
 
@@ -162,7 +158,7 @@ export default function Footer() {
         <div className="flex flex-col items-center justify-between gap-4 text-center text-xs text-muted-foreground sm:flex-row sm:text-left">
 
           <p>
-            © 2026 GitHub Knowledge Assistant. All rights reserved.
+            © 2026 RepoGenius. All rights reserved.
           </p>
 
           <p className="flex items-center gap-1">

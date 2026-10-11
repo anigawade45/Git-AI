@@ -21,8 +21,8 @@ export default function Documentation() {
   const targetRepoId = owner && repoSlug ? `${owner}/${repoSlug}` : (id || 'ecommerce-platform');
 
   useMeta({
-    title: `Documentation Generator - ${targetRepoId} | GitHub Knowledge Assistant`,
-    description: 'Generate clear technical documentation and REST API references using AI.',
+    title: `Documentation Generator - ${targetRepoId} | RepoGenius`,
+    description: 'Generate clear technical documentation and REST API references using RepoGenius.',
     robots: 'noindex, nofollow',
   });
 

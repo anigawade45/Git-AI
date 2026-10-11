@@ -54,7 +54,7 @@ export default function HowItWorks() {
           </h2>
 
           <p className="text-3xl font-extrabold tracking-tight text-foreground sm:text-5xl">
-            How GitHub Assistant Works
+            How RepoGenius Works
           </p>
 
           <p className="text-base text-muted-foreground sm:text-lg">

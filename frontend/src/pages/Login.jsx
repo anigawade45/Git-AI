@@ -14,8 +14,8 @@ export default function Login() {
   const location = useLocation();
 
   useMeta({
-    title: 'Sign In | GitHub Knowledge Assistant',
-    description: 'Sign in to your GitHub Knowledge Assistant account.',
+    title: 'Sign In | RepoGenius',
+    description: 'Sign in to your RepoGenius account.',
     robots: 'noindex, nofollow',
   });
 
@@ -40,7 +40,7 @@ export default function Login() {
         <CardContent className="p-0">
           <AuthHeader
             title="Welcome Back"
-            description="Sign in to your GitHub Knowledge Assistant account"
+            description="Sign in to your RepoGenius account"
           />
           <LoginForm />
         </CardContent>

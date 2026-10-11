@@ -1,7 +1,7 @@
 {
-  "name": "github-assistant-backend",
+  "name": "repogenius-backend",
   "version": "1.0.0",
-  "description": "Node.js & Express backend for GitHub Knowledge Assistant",
+  "description": "Node.js & Express backend for RepoGenius",
   "main": "server.js",
   "type": "module",
   "scripts": {

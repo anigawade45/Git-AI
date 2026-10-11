@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import ThemeToggle from '@/components/common/ThemeToggle';
+import Logo from '@/components/common/Logo';
 
 export default function AuthLayout({ children }) {
   return (
@@ -25,25 +26,15 @@ export default function AuthLayout({ children }) {
       {/* --------------------------------
           Header
       -------------------------------- */}
-      <header className="relative z-10 mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="relative z-10 mx-auto flex h-18 sm:h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
         {/* Brand */}
         <Link
           to="/"
-          aria-label="GitHub Knowledge Assistant home"
-          className="group flex items-center gap-2.5"
+          aria-label="RepoGenius home"
+          className="group flex items-center transition-transform hover:opacity-90 active:scale-95 py-1"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary transition-all group-hover:bg-primary group-hover:text-primary-foreground">
-            <Code2 className="h-5 w-5" />
-          </div>
-
-          <span className="flex items-center gap-1.5 text-lg font-semibold tracking-tight text-foreground">
-            GitHub Assistant
-
-            <span className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-              AI
-            </span>
-          </span>
+          <Logo className="h-11 sm:h-13 w-auto" />
         </Link>
 
         {/* Theme */}
@@ -154,7 +145,7 @@ export default function AuthLayout({ children }) {
           Footer
       -------------------------------- */}
       <footer className="relative z-10 px-4 py-4 text-center text-xs text-muted-foreground">
-        © 2026 GitHub Knowledge Assistant. All rights reserved.
+        © 2026 RepoGenius. All rights reserved.
       </footer>
     </div>
   );

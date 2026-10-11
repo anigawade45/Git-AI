@@ -66,7 +66,7 @@ export default function Benefits() {
       {/* Section Header */}
       <div className="mx-auto max-w-3xl space-y-4 text-center">
         <h2 className="text-xs font-bold uppercase tracking-widest text-primary">
-          Why Choose GitHub Assistant?
+          Why Choose RepoGenius?
         </h2>
 
         <p className="text-3xl font-extrabold tracking-tight text-foreground sm:text-5xl">

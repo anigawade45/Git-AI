@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
 export function useMeta({
-  title = 'GitHub Knowledge Assistant | AI-Powered Repository Analysis',
-  description = 'Understand, analyze, and document GitHub repositories using an AI-powered knowledge assistant.',
+  title = 'RepoGenius | AI-Powered Repository Intelligence',
+  description = 'Understand, analyze, and document GitHub repositories using RepoGenius, the AI-powered repository knowledge assistant.',
   robots = 'index, follow',
   canonical,
 }) {

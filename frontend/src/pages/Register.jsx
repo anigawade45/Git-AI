@@ -13,8 +13,8 @@ export default function Register() {
   const navigate = useNavigate();
 
   useMeta({
-    title: 'Create Account | GitHub Knowledge Assistant',
-    description: 'Create a new GitHub Knowledge Assistant account.',
+    title: 'Create Account | RepoGenius',
+    description: 'Create a new RepoGenius account.',
     robots: 'noindex, nofollow',
   });
 

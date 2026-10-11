@@ -26,9 +26,9 @@ export default function AIChat() {
 
   useMeta({
     title: targetRepoId
-      ? `AI Assistant - ${targetRepoId} | GitHub Knowledge Assistant`
-      : 'AI Assistant | GitHub Knowledge Assistant',
-    description: 'Ask natural-language questions about codebase architecture and logic.',
+      ? `AI Assistant - ${targetRepoId} | RepoGenius`
+      : 'AI Assistant | RepoGenius',
+    description: 'Ask natural-language questions about codebase architecture and logic with RepoGenius.',
     robots: 'noindex, nofollow',
   });
 

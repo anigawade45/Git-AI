@@ -56,7 +56,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Root Index Endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to GitHub Knowledge Assistant API Server 🚀',
+    message: 'Welcome to RepoGenius API Server 🚀',
     status: 'online',
     health: `http://localhost:${PORT}/api/health`,
     endpoints: {
@@ -74,7 +74,7 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'GitHub Knowledge Assistant API',
+    service: 'RepoGenius API',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
   });

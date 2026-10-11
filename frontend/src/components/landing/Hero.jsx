@@ -106,7 +106,7 @@ export default function Hero({ onAnalyze, isAnalyzing = false }) {
         <div ref={badgeRef} className="inline-flex items-center justify-center">
           <Badge variant="outline" className="py-1 px-3.5 text-xs sm:text-sm font-medium rounded-full bg-card/80 border-primary/20 backdrop-blur shadow-sm hover:border-primary/40 transition-colors">
             <Sparkles className="w-3.5 h-3.5 text-primary mr-1.5" />
-            <span>AI-Powered GitHub Knowledge Assistant</span>
+            <span>RepoGenius • AI-Powered Repository Intelligence</span>
             <span className="ml-1.5 text-xs text-primary font-bold font-mono">v2.0</span>
           </Badge>
         </div>

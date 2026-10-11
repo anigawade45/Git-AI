@@ -15,8 +15,8 @@ import { useMeta } from '@/hooks/useMeta';
 
 export default function Dashboard() {
   useMeta({
-    title: 'Dashboard | GitHub Knowledge Assistant',
-    description: 'Manage your GitHub repositories and run AI analysis.',
+    title: 'Dashboard | RepoGenius',
+    description: 'Manage your GitHub repositories and run AI analysis with RepoGenius.',
     robots: 'noindex, nofollow',
   });
 

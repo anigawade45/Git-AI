@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import Logo from '@/components/common/Logo';
 
 export default function DashboardSidebar({ activeTab = 'overview', onSelectTab, repoCount = null, className = '' }) {
   const { user, logout } = useAuth();
@@ -64,23 +65,12 @@ export default function DashboardSidebar({ activeTab = 'overview', onSelectTab, 
         {/* Brand Logo Header */}
         <Link
           to="/dashboard"
-          className="flex items-center justify-between px-2.5 py-2.5 rounded-xl hover:bg-accent/50 border border-transparent hover:border-border/50 transition-all duration-200 group"
+          className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-accent/50 border border-transparent hover:border-border/50 transition-all duration-200 group"
+          aria-label="RepoGenius Dashboard"
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform duration-200 shrink-0">
-              <Code2 className="w-4 h-4" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm tracking-tight text-foreground truncate">
-                  GitHub Assistant
-                </span>
-                <span className="text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.2 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
-                  AI
-                </span>
-              </div>
-              <span className="text-[10px] text-muted-foreground font-medium truncate">v2.4 • Smart Workspace</span>
-            </div>
+          <div className="flex flex-col min-w-0">
+            <Logo className="h-9 sm:h-10 w-auto max-w-[190px]" />
+            <span className="text-[10px] text-muted-foreground font-medium pl-1 mt-0.5 truncate">v2.4 • Smart Workspace</span>
           </div>
         </Link>
 

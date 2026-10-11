@@ -30,9 +30,9 @@ export default function Repository() {
 
   useMeta({
     title: targetRepoId
-      ? `${targetRepoId} Explorer | GitHub Knowledge Assistant`
-      : 'Repository Explorer | GitHub Knowledge Assistant',
-    description: 'Browse repository file tree and view source code.',
+      ? `${targetRepoId} Explorer | RepoGenius`
+      : 'Repository Explorer | RepoGenius',
+    description: 'Browse repository file tree and view source code with RepoGenius.',
     robots: 'noindex, nofollow',
   });
 
