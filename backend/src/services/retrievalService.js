@@ -78,7 +78,25 @@ export const retrievalService = {
   classifyQueryIntent(query = '') {
     const lower = query.toLowerCase().trim();
 
-    // 0. Authoritative Repository Structure / Manifest / File Count Queries
+    // 0. Greeting & Small Talk (pure pleasantries, greetings, or casual talk without code questions)
+    const isPureGreeting = (
+      /^(hey|hi|hello|howdy|yo|sup|greetings|good\s+(morning|afternoon|evening|day))(\s+(there|assistant|bot|ai|friend|everyone|all))?[.!?]*$/i.test(lower) ||
+      /^(what'?s\s+up|how\s+are\s+you|how's\s+it\s+going|how\s+do\s+you\s+do|how\s+are\s+things)[.!?]*$/i.test(lower) ||
+      /^(who\s+are\s+you|what\s+can\s+you\s+do|introduce\s+yourself)[.!?]*$/i.test(lower) ||
+      /^(thanks|thank\s+you|ok|okay|cool|awesome|great|got\s+it)[.!?]*$/i.test(lower)
+    );
+    if (isPureGreeting) {
+      return {
+        intent: 'GREETING',
+        isGreeting: true,
+        noRetrieval: true,
+        wVector: 0,
+        wKeyword: 0,
+        targetTopK: 0,
+      };
+    }
+
+    // 1. Authoritative Repository Structure / Manifest / File Count Queries
     if (
       /\b(how many files|file count|total files|number of files|count of files)\b/i.test(lower) ||
       /\b(what files|list files|list all files|show all files|all files in|files in this repo|files in this repository|what files are in)\b/i.test(lower) ||
@@ -93,7 +111,34 @@ export const retrievalService = {
       };
     }
 
-    // 1. Repository Existence / Capability Lookup
+    // 2. Project Overview / "About What" Queries
+    if (
+      /\b(what is this (project|repo|repository|codebase) about|what does this (project|repo|repository|codebase) do|this project related about what|tell me about this (project|repo|repository|codebase)|overview of this (project|repo|repository|codebase)|about this project)\b/i.test(lower)
+    ) {
+      return {
+        intent: 'PROJECT_OVERVIEW',
+        wVector: 0.8,
+        wKeyword: 0.2,
+        targetTopK: 12,
+        fileDiversityBoost: true,
+      };
+    }
+
+    // 3. Architecture & Data Flow Overview
+    if (
+      /\b(architecture|overall architecture|project architecture|data flow|system design|module relationships|component structure|application structure|overall project architecture)\b/i.test(lower) ||
+      /\b(how is the project structured|architecture overview)\b/i.test(lower)
+    ) {
+      return {
+        intent: 'ARCHITECTURE',
+        wVector: 0.75,
+        wKeyword: 0.25,
+        targetTopK: 16,
+        fileDiversityBoost: true,
+      };
+    }
+
+    // 4. Repository Existence / Capability Lookup
     if (
       /\b(does|do|has|have|can)\b.*\b(repository|repo|project|codebase|app|we|it)\b.*\b(contain|have|include|support|find)\b/i.test(lower) ||
       /\b(is there|are there|does there)\b.*\b(any|a|an)?\s*\b(implementation|code|class|function|method|struct|interface|file)\b/i.test(lower) ||
@@ -107,35 +152,21 @@ export const retrievalService = {
       };
     }
 
-    // 2. File Location & Exact Symbol Lookup
+    // 5. File Location, Exact Symbol Lookup & Component Responsibility
     if (
       /^(where|find|locate|search|which file|what line|show me the code)\b/i.test(lower) ||
-      /\b(where is|where are|file location|file path|symbol name|defined|implementation of)\b/i.test(lower)
+      /\b(where is|where are|file location|file path|symbol name|defined|implementation of|manages navigation|manages state|handles authentication|manages|handles)\b/i.test(lower)
     ) {
       return {
         intent: 'FILE_LOCATION',
-        wVector: 0.25,
-        wKeyword: 0.75,
-        targetTopK: 6,
+        wVector: 0.3,
+        wKeyword: 0.7,
+        targetTopK: 8,
         symbolMatchMultiplier: 1.6,
       };
     }
 
-    // 2. Architecture & Data Flow Overview
-    if (
-      /^(architecture|structure|system design|overview|flow|data flow)\b/i.test(lower) ||
-      /\b(how is the project structured|architecture overview|module relationships|component structure)\b/i.test(lower)
-    ) {
-      return {
-        intent: 'ARCHITECTURE',
-        wVector: 0.8,
-        wKeyword: 0.2,
-        targetTopK: 16,
-        fileDiversityBoost: true,
-      };
-    }
-
-    // 3. System Explanation & Concept Walkthrough
+    // 6. System Explanation & Concept Walkthrough
     if (
       /^(explain|how does|how do|describe|understand|walkthrough|tell me about)\b/i.test(lower) ||
       /\b(how it works|explanation|how does authentication work|concept)\b/i.test(lower)
@@ -504,7 +535,16 @@ export const retrievalService = {
         score *= 0.6;
       }
 
-      const finalScore = parseFloat(score.toFixed(4));
+      // Calibrate display confidence score between 0.0 and 1.0 based on semantic and keyword strength
+      const semanticConfidence = Math.max(
+        (chunk.vectorScore || 0) * 0.6 + (chunk.keywordScore || 0) * 0.4,
+        chunk.vectorScore || 0,
+        chunk.keywordScore || 0
+      );
+      const calibratedScore = semanticConfidence > 0
+        ? Math.min(1.0, Math.max(semanticConfidence, score * 20))
+        : Math.min(1.0, score * 25);
+      const finalScore = parseFloat(calibratedScore.toFixed(4));
 
       return {
         ...chunk,
@@ -635,7 +675,19 @@ export const retrievalService = {
       return [];
     }
 
-    // Step 6: Code Relationship Graph Expansion (ONLY from validated relevant primary chunks)
+    // Step 6A: Sibling Chunk Expansion for primary files (ensures complete multi-section component context)
+    const topPrimaryFiles = Array.from(new Set(relevantPrimaryChunks.slice(0, 3).map((c) => c.filePath)));
+    const existingChunkIds = new Set(relevantPrimaryChunks.map((c) => c.id || c._id?.toString()));
+
+    const siblingChunks = await this.expandSiblingChunks({
+      repositoryId: rawRepoId,
+      userId,
+      filePaths: topPrimaryFiles,
+      existingChunkIds,
+      maxSiblingsPerFile: 6,
+    });
+
+    // Step 6B: Code Relationship Graph Expansion (imports and parent caller components like App.jsx)
     const expandedDependencies = await this.expandDependencyGraph({
       repositoryId: rawRepoId,
       userId,
@@ -643,8 +695,8 @@ export const retrievalService = {
       maxExpanded: 4,
     });
 
-    // Step 7: Combine validated primary chunks with validated dependency graph expansion
-    const combined = [...relevantPrimaryChunks, ...expandedDependencies];
+    // Step 7: Combine validated primary chunks, sibling component chunks, and dependency graph expansion
+    const combined = [...relevantPrimaryChunks, ...siblingChunks, ...expandedDependencies];
     let finalRelevantChunks = combined.filter((chunk) => this.isChunkRelevant(chunk, query, intentConfig));
 
     // Relative Score Cutoff: Filter out weak tail candidates whose score is < 50% of the top match
@@ -657,9 +709,7 @@ export const retrievalService = {
       }
     }
 
-    // Step 8A: Primary Subject Target Filter
-    // Extract subject tokens by excluding standalone algorithm qualifier terms.
-    // Preserves problem subject terms (e.g., 'Two' in 'Two Sum').
+    // Step 8A: Primary Subject Target Filter (preserve multi-section component evidence and related callers)
     const rawTokens = this.extractCodeKeywords(query);
     const standaloneQualifierTerms = new Set([
       'brute', 'force', 'hashmap', 'hash', 'map', 'set', 'hashset', 'binarysearch',
@@ -685,13 +735,21 @@ export const retrievalService = {
       });
 
       const maxMatches = Math.max(...scoredSubjectChunks.map((item) => item.matchCount));
-      if (maxMatches > 0) {
-        const topSubjectChunks = scoredSubjectChunks
-          .filter((item) => item.matchCount === maxMatches)
+      if (maxMatches >= 2) {
+        const topFilePath = finalRelevantChunks[0]?.filePath;
+        const validSubjectChunks = scoredSubjectChunks
+          .filter((item) => {
+            // Always retain sibling chunks and dependency context
+            if (item.chunk.isSiblingContext || item.chunk.isDependencyContext) return true;
+            // Always retain chunks from the primary matching file
+            if (topFilePath && item.chunk.filePath === topFilePath) return true;
+            // Retain chunks with at least half the max matches or at least 1 match
+            return item.matchCount >= Math.max(1, Math.floor(maxMatches * 0.5));
+          })
           .map((item) => item.chunk);
 
-        if (topSubjectChunks.length > 0) {
-          finalRelevantChunks = topSubjectChunks;
+        if (validSubjectChunks.length > 0) {
+          finalRelevantChunks = validSubjectChunks;
         }
       }
     }
@@ -1027,6 +1085,52 @@ export const retrievalService = {
     return false;
   },
 
+  /**
+   * Sibling Chunk Expansion:
+   * For the top primary matching file(s), retrieve remaining chunks of the file
+   * so multi-section component logic (state, desktop, mobile drawer, handlers) is collected together.
+   */
+  async expandSiblingChunks({ repositoryId, userId, filePaths = [], existingChunkIds = new Set(), maxSiblingsPerFile = 6 }) {
+    if (!filePaths || filePaths.length === 0) return [];
+    const rawRepoId = safeDecode(repositoryId);
+
+    const siblingQuery = {
+      repositoryId: rawRepoId,
+      userId,
+      filePath: { $in: filePaths },
+    };
+
+    const allFileChunks = await CodeChunk.find(siblingQuery)
+      .select('filePath fileName language chunkIndex content startLine endLine symbolName symbolType commitSha')
+      .sort({ filePath: 1, chunkIndex: 1 })
+      .lean();
+
+    const newSiblings = [];
+    const countByFile = new Map();
+
+    for (const chunk of allFileChunks) {
+      const chunkId = chunk._id?.toString();
+      if (existingChunkIds.has(chunkId)) continue;
+
+      const count = countByFile.get(chunk.filePath) || 0;
+      if (count >= maxSiblingsPerFile) continue;
+
+      countByFile.set(chunk.filePath, count + 1);
+      newSiblings.push({
+        ...chunk,
+        id: chunkId,
+        score: 0.75,
+        finalScore: 0.75,
+        vectorScore: 0.75,
+        keywordScore: 0.75,
+        isSiblingContext: true,
+        retrievalMethod: 'sibling_expansion',
+      });
+    }
+
+    return newSiblings;
+  },
+
   async expandDependencyGraph({ repositoryId, userId, primaryChunks = [], maxExpanded = 4 }) {
     if (!primaryChunks || primaryChunks.length === 0) return [];
 
@@ -1047,6 +1151,12 @@ export const retrievalService = {
       });
 
       exportsList.forEach((exp) => targetSymbols.add(exp));
+
+      // Also register component name (e.g. Navbar) to find parent caller components like App.jsx
+      const componentName = chunk.fileName?.replace(/\.[^.]+$/, '');
+      if (componentName && componentName.length > 2) {
+        targetSymbols.add(componentName);
+      }
 
       if (chunk.content) {
         const deps = codeChunkingService.extractDependencies(chunk.content, chunk.language);
@@ -1074,6 +1184,11 @@ export const retrievalService = {
     );
     const symbolList = Array.from(targetSymbols);
 
+    // Build regex for caller components importing or instantiating target symbols (e.g. <Navbar or import ... Navbar)
+    const callerSymbolRegexes = symbolList.length > 0
+      ? [new RegExp(`(?:<|import\\s+.*\\b)(${symbolList.slice(0, 5).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'i')]
+      : [];
+
     const dependencyQuery = {
       repositoryId: rawRepoId,
       userId,
@@ -1081,6 +1196,7 @@ export const retrievalService = {
       $or: [
         { filePath: { $in: pathRegexes } },
         { symbolName: { $in: symbolList } },
+        ...(callerSymbolRegexes.length > 0 ? [{ content: { $in: callerSymbolRegexes } }] : []),
       ],
     };
 

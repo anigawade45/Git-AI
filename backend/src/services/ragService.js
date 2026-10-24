@@ -398,8 +398,22 @@ Directories Count: ${folders.size}
 
     const rawRepoId = safeDecode(repositoryId);
 
-    // 0. Check query intent: If user asks about repository structure, file counts, or manifest, return authoritative metadata
+    // 0. Check query intent:
     const intentInfo = retrievalService.classifyQueryIntent(query);
+
+    // If query is a greeting or small talk, do not perform codebase retrieval; return no context
+    if (intentInfo.intent === 'GREETING' || intentInfo.noRetrieval) {
+      return {
+        hasContext: false,
+        isGreeting: true,
+        contextText: '',
+        sources: [],
+        status: 'INDEXED',
+        retrievedCount: 0,
+      };
+    }
+
+    // If user asks about repository structure, file counts, or manifest, return authoritative metadata
     if (intentInfo.intent === 'REPO_STRUCTURE' || intentInfo.isManifestQuery) {
       return await this.buildManifestContext({ repositoryId: rawRepoId, userId, query });
     }

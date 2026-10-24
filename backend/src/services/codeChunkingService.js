@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 
-// Files and directories to exclude from chunking and embedding
 const EXCLUDED_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'svg', 'bmp', 'tiff',
   'pdf', 'doc', 'docx', 'zip', 'tar', 'gz', '7z', 'rar',

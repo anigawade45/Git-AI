@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { aiGateway } from './aiGateway.js';
 import { ragService } from './ragService.js';
+import { retrievalService } from './retrievalService.js';
 
 const GEMINI_TEXT_MODELS = [
   'gemini-3.8-flash',
@@ -78,6 +79,7 @@ const getContextFileSources = (contextFile) => {
 };
 
 const parseLineRangesForFile = (aiText, fileName, filePath) => {
+  if (!aiText) return [];
   const identifiers = new Set();
   if (filePath) identifiers.add(filePath.toLowerCase());
   if (fileName) identifiers.add(fileName.toLowerCase());
@@ -91,13 +93,13 @@ const parseLineRangesForFile = (aiText, fileName, filePath) => {
     if (!id || id.length < 2) continue;
     const escaped = id.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-    // Matches: filename lines X-Y, filename:X-Y, filename (lines X to Y), filename L30-L40, etc.
-    const rangeRegex = new RegExp(
-      `${escaped}[\\\`\\)\\]\\s\\:,]*(?:(?:lines?|l)\\s*)?:?\\s*(\\d+)\\s*(?:-|to|–|—)\\s*(?:l|lines?)?\\s*(\\d+)`,
+    // 1. Forward range: filename ... [on/at/around] [lines/l] X-Y / X to Y
+    const forwardRangeRegex = new RegExp(
+      `${escaped}[\\\`\\)\\]\\s\\:,]*(?:(?:on|at|around)\\s+)?(?:(?:lines?|l)\\s*)?:?\\s*(\\d+)\\s*(?:-|to|–|—)\\s*(?:l|lines?)?\\s*(\\d+)`,
       'gi'
     );
     let match;
-    while ((match = rangeRegex.exec(aiText)) !== null) {
+    while ((match = forwardRangeRegex.exec(aiText)) !== null) {
       const s = parseInt(match[1], 10);
       const e = parseInt(match[2], 10);
       if (!isNaN(s) && !isNaN(e)) {
@@ -105,12 +107,37 @@ const parseLineRangesForFile = (aiText, fileName, filePath) => {
       }
     }
 
-    // Matches single line: filename line X, filename:X, filename (line X)
-    const singleRegex = new RegExp(
-      `${escaped}[\\\`\\)\\]\\s\\:,]*(?:(?:lines?|l)\\s*|:)\\s*(\\d+)(?!\\s*(?:-|to|–|—|\\d))`,
+    // 2. Reverse range: lines X-Y / X to Y [in/of/from/inside] filename
+    const reverseRangeRegex = new RegExp(
+      `(?:(?:lines?|l)\\s*)?:?\\s*(\\d+)\\s*(?:-|to|–|—)\\s*(?:l|lines?)?\\s*(\\d+)[\\\`\\)\\]\\s\\:,]*(?:in|of|from|inside)\\s+[\\\`\\(\\[\\s]*${escaped}`,
       'gi'
     );
-    while ((match = singleRegex.exec(aiText)) !== null) {
+    while ((match = reverseRangeRegex.exec(aiText)) !== null) {
+      const s = parseInt(match[1], 10);
+      const e = parseInt(match[2], 10);
+      if (!isNaN(s) && !isNaN(e)) {
+        ranges.push({ start: Math.min(s, e), end: Math.max(s, e) });
+      }
+    }
+
+    // 3. Forward single line: filename ... line X
+    const forwardSingleRegex = new RegExp(
+      `${escaped}[\\\`\\)\\]\\s\\:,]*(?:(?:on|at|around)\\s+)?(?:(?:lines?|l)\\s*|:)\\s*(\\d+)(?!\\s*(?:-|to|–|—|\\d))`,
+      'gi'
+    );
+    while ((match = forwardSingleRegex.exec(aiText)) !== null) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num)) {
+        ranges.push({ start: num, end: num });
+      }
+    }
+
+    // 4. Reverse single line: line X [in/of/from/inside] filename
+    const reverseSingleRegex = new RegExp(
+      `(?:(?:lines?|l)\\s*|:)\\s*(\\d+)[\\\`\\)\\]\\s\\:,]*(?:in|of|from|inside)\\s+[\\\`\\(\\[\\s]*${escaped}(?!\\s*(?:-|to|–|—|\\d))`,
+      'gi'
+    );
+    while ((match = reverseSingleRegex.exec(aiText)) !== null) {
       const num = parseInt(match[1], 10);
       if (!isNaN(num)) {
         ranges.push({ start: num, end: num });
@@ -124,7 +151,10 @@ const parseLineRangesForFile = (aiText, fileName, filePath) => {
 const validateCitations = (aiText, activeSources) => {
   if (!aiText || !activeSources || activeSources.length === 0) return [];
 
-  const validSources = activeSources.filter((src) => {
+  const validSources = [];
+  const seenKeys = new Set();
+
+  for (const src of activeSources) {
     const fileNameLower = (src.fileName || '').toLowerCase();
     const filePathLower = (src.filePath || '').toLowerCase();
     const textLower = aiText.toLowerCase();
@@ -134,26 +164,53 @@ const validateCitations = (aiText, activeSources) => {
       (fileNameLower && textLower.includes(fileNameLower)) ||
       (filePathLower && textLower.includes(filePathLower));
 
-    if (!isFileMentioned) return false;
+    if (!isFileMentioned) continue;
 
     // 2. Parse cited line ranges for this file
     const citedRanges = parseLineRangesForFile(aiText, src.fileName, src.filePath);
 
-    // If no specific line numbers/ranges were cited, but the file was explicitly mentioned in text, confirm file mention
-    if (citedRanges.length === 0) {
-      return true;
-    }
+    let finalStartLine = src.startLine;
+    let finalEndLine = src.endLine;
 
-    // 3. If line ranges were cited, verify overlap with source chunk range
-    if (src.startLine !== null && src.endLine !== null && src.startLine !== undefined && src.endLine !== undefined) {
-      const hasOverlap = citedRanges.some(
-        (range) => range.start <= src.endLine && range.end >= src.startLine
-      );
-      return hasOverlap;
-    }
+    if (citedRanges.length > 0) {
+      // Create a citation for EACH cited range that overlaps with or is covered by this chunk
+      let matchedAny = false;
+      for (const range of citedRanges) {
+        const overlaps =
+          (src.startLine == null || range.start <= src.endLine) &&
+          (src.endLine == null || range.end >= src.startLine);
 
-    return true;
-  });
+        if (overlaps) {
+          matchedAny = true;
+          const key = `${src.filePath}:${range.start}-${range.end}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            validSources.push({
+              ...src,
+              startLine: range.start,
+              endLine: range.end,
+            });
+          }
+        }
+      }
+
+      // If specific ranges were cited but none overlapped this specific chunk, skip it
+      if (!matchedAny) {
+        continue;
+      }
+    } else {
+      // No specific line numbers cited; produce file-level citation (or chunk range)
+      const key = `${src.filePath}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        validSources.push({
+          ...src,
+          startLine: src.startLine,
+          endLine: src.endLine,
+        });
+      }
+    }
+  }
 
   // Strict Rule: Return ONLY sources that were explicitly cited in text with verified range overlap.
   // DO NOT fall back to activeSources if no citations were present!
@@ -172,6 +229,12 @@ export const aiEngine = {
     }
 
     if (signal?.aborted) {
+      return prompt;
+    }
+
+    // Do not rewrite greetings or small talk using conversation history
+    const intentInfo = retrievalService.classifyQueryIntent(prompt);
+    if (intentInfo.intent === 'GREETING' || intentInfo.noRetrieval) {
       return prompt;
     }
 
@@ -354,14 +417,32 @@ Title:`;
 
     const systemPrompt = `You are an expert AI Software Engineer assisting with codebase Q&A for repository: '${repoId}'.
 
-MANDATORY ANSWER GROUNDING RULES:
-1. Base your answer STRICTLY on the provided retrieved codebase context below.
-2. Do NOT invent implementation details, files, or functions that are not explicitly present in the context.
-3. Cite exact file paths and line ranges (e.g., \`path/to/file.js\` lines X-Y) when referencing code.
-4. If the provided codebase context does not contain enough evidence to answer the question, explicitly state: "The retrieved repository context is insufficient to answer this query."
-5. Distinguish observed codebase implementation from general technical inference.
-6. Do not claim a feature exists merely because it is a common software development convention.
-7. Never fabricate or hallucinate source citations.`;
+MANDATORY ANSWER GROUNDING & ARCHITECTURE SYNTHESIS RULES:
+1. GREETINGS & CASUAL INTERACTION:
+   - If the user sends a greeting or small talk (e.g., "Hey", "Hello", "How are you", "Greetings"), respond pleasantly and professionally.
+   - Introduce yourself as the GitHub Knowledge Assistant for repository '${repoId}'.
+   - Offer assistance with exploring the codebase, files, or architecture.
+   - Do NOT cite any files, code, or sources for greetings or general small talk.
+
+2. GROUNDING & FACTUAL INTEGRITY:
+   - Base technical answers strictly on the retrieved codebase context provided.
+   - Do NOT invent files, functions, routes, or implementation details not present in the context.
+   - Cite exact file paths and line ranges (e.g., \`path/to/file.js\` lines X-Y or \`path/to/file.js\`) when referencing code.
+   - Only cite files and line ranges that directly support claims made in your response. Never attach or cite sources merely because they appeared in the retrieved context.
+
+3. ARCHITECTURE & DATA FLOW SYNTHESIS:
+   - When asked broad questions (such as overall project architecture, data flow, component layout, or system design), explain the architecture and components that the available retrieved evidence supports.
+   - Ground each verified aspect with citations to the observed files and lines (e.g., configuration and project data in \`src/lib/bookConstants.js\`, interactive UI in \`src/components/ClosedBookIntro.jsx\`, presentation sections in \`src/sections/Hero.jsx\` and \`src/sections/About.jsx\`).
+   - Explicitly identify what remains unknown or missing from the retrieved evidence (e.g., unobserved navigation lifecycle, state management, routing, or backend data flow).
+   - NEVER reject an architecture or overview question with "insufficient context" if relevant files or components were retrieved. Only state that context is insufficient if the retrieved context contains zero relevant files or facts.
+
+4. RESPONSIBILITY ATTRIBUTION:
+   - When asked which file manages a specific responsibility (e.g., "Which file manages navigation?"), only attribute that responsibility and cite the file if the retrieved code confirms it.
+   - If the retrieved context does not contain the file managing that responsibility or if its responsibility cannot be confirmed, explicitly state that the evidence is inconclusive or missing rather than speculating.
+
+5. NEVER FABRICATE:
+   - Distinguish observed codebase facts from general software engineering inference.
+   - Never fabricate or hallucinate source citations.`;
 
     const userPrompt = ragContextText
       ? `RETRIEVED CODEBASE CONTEXT:\n${ragContextText}\n\nUSER QUESTION:\n${prompt}`
@@ -412,14 +493,32 @@ MANDATORY ANSWER GROUNDING RULES:
 
     const systemPrompt = `You are an expert AI Software Engineer assisting with codebase Q&A for repository: '${repoId}'.
 
-MANDATORY ANSWER GROUNDING RULES:
-1. Base your answer STRICTLY on the provided retrieved codebase context below.
-2. Do NOT invent implementation details, files, or functions that are not explicitly present in the context.
-3. Cite exact file paths and line ranges (e.g., \`path/to/file.js\` lines X-Y) when referencing code.
-4. If the provided codebase context does not contain enough evidence to answer the question, explicitly state: "The retrieved repository context is insufficient to answer this query."
-5. Distinguish observed codebase implementation from general technical inference.
-6. Do not claim a feature exists merely because it is a common software development convention.
-7. Never fabricate or hallucinate source citations.`;
+MANDATORY ANSWER GROUNDING & ARCHITECTURE SYNTHESIS RULES:
+1. GREETINGS & CASUAL INTERACTION:
+   - If the user sends a greeting or small talk (e.g., "Hey", "Hello", "How are you", "Greetings"), respond pleasantly and professionally.
+   - Introduce yourself as the GitHub Knowledge Assistant for repository '${repoId}'.
+   - Offer assistance with exploring the codebase, files, or architecture.
+   - Do NOT cite any files, code, or sources for greetings or general small talk.
+
+2. GROUNDING & FACTUAL INTEGRITY:
+   - Base technical answers strictly on the retrieved codebase context provided.
+   - Do NOT invent files, functions, routes, or implementation details not present in the context.
+   - Cite exact file paths and line ranges (e.g., \`path/to/file.js\` lines X-Y or \`path/to/file.js\`) when referencing code.
+   - Only cite files and line ranges that directly support claims made in your response. Never attach or cite sources merely because they appeared in the retrieved context.
+
+3. ARCHITECTURE & DATA FLOW SYNTHESIS:
+   - When asked broad questions (such as overall project architecture, data flow, component layout, or system design), explain the architecture and components that the available retrieved evidence supports.
+   - Ground each verified aspect with citations to the observed files and lines (e.g., configuration and project data in \`src/lib/bookConstants.js\`, interactive UI in \`src/components/ClosedBookIntro.jsx\`, presentation sections in \`src/sections/Hero.jsx\` and \`src/sections/About.jsx\`).
+   - Explicitly identify what remains unknown or missing from the retrieved evidence (e.g., unobserved navigation lifecycle, state management, routing, or backend data flow).
+   - NEVER reject an architecture or overview question with "insufficient context" if relevant files or components were retrieved. Only state that context is insufficient if the retrieved context contains zero relevant files or facts.
+
+4. RESPONSIBILITY ATTRIBUTION:
+   - When asked which file manages a specific responsibility (e.g., "Which file manages navigation?"), only attribute that responsibility and cite the file if the retrieved code confirms it.
+   - If the retrieved context does not contain the file managing that responsibility or if its responsibility cannot be confirmed, explicitly state that the evidence is inconclusive or missing rather than speculating.
+
+5. NEVER FABRICATE:
+   - Distinguish observed codebase facts from general software engineering inference.
+   - Never fabricate or hallucinate source citations.`;
 
     const userPrompt = ragContextText
       ? `RETRIEVED CODEBASE CONTEXT:\n${ragContextText}\n\nUSER QUESTION:\n${prompt}`

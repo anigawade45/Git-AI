@@ -297,28 +297,15 @@ export const sendMessage = async (req, res) => {
       repoId: cleanRepoId,
     });
 
-    // 6. Strict Source Validation: RAG retrieval & contextFile are the sole authorities for citation sources.
-    // AI-generated citations can never introduce unretrieved sources.
-    const rawCandidateSources = ragResult.hasContext
-      ? ragResult.sources
-      : contextFile
-        ? [
-          {
-            fileName: contextFile.name,
-            filePath: contextFile.path,
-            startLine: contextFile.startLine ?? null,
-            endLine: contextFile.endLine ?? null,
-            language: contextFile.language || 'plaintext',
-          },
-        ]
-        : [];
+    // 6. Strict Source Validation: Validate only sources cited in the AI response against repository & chunks
+    // Never attach sources merely because retrieval returned chunks. Citations must support claims actually made in the response.
+    const rawCandidateSources = aiResult.sources || [];
     const verifiedSources = await ragService.validateSourcesAgainstRepo({
       repositoryId: cleanRepoId,
       userId,
       sources: rawCandidateSources,
     });
 
-    // Store in AI response cache (2 hour TTL) with full rag metadata
     cacheService.set(
       cacheKey,
       {
@@ -490,11 +477,12 @@ export const streamMessage = async (req, res) => {
     );
 
     // 5. Send initial retrieval sources event (retrieval_sources semantics)
+    // Candidate chunks are retrieval context; citations are confirmed and validated after response generation
     if (!abortController.signal.aborted) {
       res.write(
         `data: ${JSON.stringify({
           type: 'retrieval_sources',
-          sources: ragResult.sources || [],
+          sources: [],
           hasContext: ragResult.hasContext,
           conversationId: targetConvId,
         })}\n\n`
@@ -516,21 +504,9 @@ export const streamMessage = async (req, res) => {
       },
     });
 
-    // 7. Strict Source Validation: RAG retrieval & contextFile are the sole authorities for citation sources.
-    // AI-generated citations can never introduce unretrieved sources.
-    const rawCandidateSources = ragResult.hasContext
-      ? ragResult.sources
-      : contextFile
-        ? [
-          {
-            fileName: contextFile.name,
-            filePath: contextFile.path,
-            startLine: contextFile.startLine ?? null,
-            endLine: contextFile.endLine ?? null,
-            language: contextFile.language || 'plaintext',
-          },
-        ]
-        : [];
+    // 7. Strict Source Validation: Validate only sources cited in the AI response against repository & chunks
+    // Never attach sources merely because retrieval returned chunks. Citations must support claims actually made in the response.
+    const rawCandidateSources = aiResult.sources || [];
     const verifiedSources = await ragService.validateSourcesAgainstRepo({
       repositoryId: cleanRepoId,
       userId,
